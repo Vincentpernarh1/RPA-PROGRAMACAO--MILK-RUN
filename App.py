@@ -116,13 +116,13 @@ def run_automation(playwright: Playwright, q: queue.Queue):
             browser = playwright.chromium.launch(
                 headless=False,
                 executable_path=chromium_path,
-                args=["--start-maximized"]
+                args=["--start-maximized", "--lang=en-US"]
             )
         else:
             # .py → use default Playwright Chromium
             browser = playwright.chromium.launch(
                 headless=False,
-                args=["--start-maximized"]
+                args=["--start-maximized", "--lang=en-US"]
             )
                     
         # context = browser.new_context(viewport={'width': 1920, 'height': 1080})
