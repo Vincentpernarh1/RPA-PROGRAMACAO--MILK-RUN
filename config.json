@@ -17,7 +17,8 @@
       "base_bases": "Bases",
       "base_resultados": "Resultados",
       "base_matriz": "1 - MATRIZ",
-      "base_planilhas_recebidos": "Planilhas_Recebidos"
+      "base_planilhas_recebidos": "Planilhas_Recebidos",
+      "base_historico": "Historico_Resultados"
     },
     "files": {
       "db_fornecedores": "DB Fornecedores.xlsx",
@@ -78,6 +79,7 @@
     }
   },
   "business_logic": {
+    "auto_limpeza_diaria": false,
     "style_highlight_color": "#FFFFE0",
     "sap_exclusion_list": [
       800030982

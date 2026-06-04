@@ -18,6 +18,7 @@ import xlwings as xw
 import time
 from datetime import date, timedelta
 import traceback
+import shutil
 
 # from App import load_config
 
@@ -314,11 +315,10 @@ def Processar_Demandas(q):
         df_final[col] = df_final[col].astype(int)
 
     condicao_estado = df_final['ESTADO'] != 'MG'
-    condicao_sap = ~df_final['SAP'].isin(CONFIG['business_logic']['sap_exclusion_list'])
-    
-    # Aplica AMBAS as condições. O .copy() evita o SettingWithCopyWarning
-    df_final = df_final[condicao_estado & condicao_sap].copy()
-      
+    condicao_sap_excecao = df_final['SAP'].isin(CONFIG['business_logic']['sap_exclusion_list'])
+
+    # Mantém se a linha NÃO for 'MG', OU se o SAP estiver na lista de exceção
+    df_final = df_final[condicao_estado | condicao_sap_excecao].copy()      
     light_yellow = CONFIG['business_logic']['style_highlight_color'] 
     df_funilaria = pd.DataFrame(columns=['SAP', 'FORNECEDOR']) # Inicializa vazio
 
@@ -1210,11 +1210,24 @@ def Copiar_planejamentos_para_cargolift_Arquivos(wb_cargolift = None,q = None) :
         q.put(("status", "AVISO: Arquivo 'FPT BT' não encontrado em Planilhas_Recebidos."))
         
     # You might want to save and close the master files here or in the calling function
-    # wb_cargolift_sp_PFEP.save()
-    # wb_cargolift_sp_PFEP.close()
-    # app_cargolift_sp_PFEP.quit()
-    # app_cargolift_sp_Supplier.quit()
+    q.put(("status", "Salvando arquivos finais..."))
+    # try:
+    #     wb_cargolift_sp_PFEP.save()
+    #     wb_cargolift_sp_PFEP.close()
+    #     app_cargolift_sp_PFEP.quit()
+        
+    #     wb_cargolift_sp_Supplier.save()
+    #     wb_cargolift_sp_Supplier.close()
+    #     app_cargolift_sp_Supplier.quit()
+    # except Exception as e:
+    #     q.put(("status", f"AVISO: Problema ao salvar os arquivos finais: {e}"))
+
     q.put(("status", "Processo FPT BT concluído."))
+
+    if CONFIG['business_logic'].get('auto_limpeza_diaria', False):
+        limpar_e_arquivar(q)
+    else:
+        q.put(("status", "Auto limpeza desativada. Finalizado."))
 
 
 
@@ -2004,6 +2017,72 @@ def copiar_e_colar_SP(q=None, data_ckd_pfep_sp=None, data_ckd_supplier_sp=None,
     q.put(("status", "Colagem de todos os dados SP concluída."))
     if q: q.put(("status", "Processo de colagem SP concluído."))
 
+
+
+
+def limpar_e_arquivar(q=None):
+    """
+    Cria uma pasta diária no Historico_Resultados, copia os arquivos finais para lá,
+    e move os arquivos de entrada (Demanda, Planilhas_Recebidos) para uma subpasta 'Entradas'.
+    """
+    if q: q.put(("status", "Iniciando arquivamento e limpeza diária..."))
+    
+    try:
+        agora = datetime.now()
+        nome_pasta_diaria = agora.strftime('%Y-%m-%d_%H-%M')
+        
+        caminho_historico_base = os.path.join(caminho_base, CONFIG['paths']['folders'].get('base_historico', 'Historico_Resultados'))
+        caminho_pasta_hoje = os.path.join(caminho_historico_base, nome_pasta_diaria)
+        caminho_entradas_hoje = os.path.join(caminho_pasta_hoje, 'Entradas')
+        
+        os.makedirs(caminho_entradas_hoje, exist_ok=True)
+        
+        # 1. Copiar Resultados Finais para o Histórico
+        if q: q.put(("status", "Copiando arquivos finais para o histórico..."))
+        
+        # Demandas_Total
+        demandas_path = os.path.join(caminho_base, CONFIG['paths']['folders']['base_resultados'], CONFIG['paths']['files']['demandas_total_output'])
+        if os.path.exists(demandas_path):
+            shutil.copy2(demandas_path, caminho_pasta_hoje)
+            
+        # Programação FIASA - OFICIAL
+        fiasa_path = get_path_from_config('fiasa_search_terms', 'base_matriz', q)
+        if fiasa_path and os.path.exists(fiasa_path):
+            shutil.copy2(fiasa_path, caminho_pasta_hoje)
+            
+        # Cargolift SP - PFEP
+        cargolift_pfep_path = get_path_from_config('cargolift_pfep_terms', 'base_matriz', q)
+        if cargolift_pfep_path and os.path.exists(cargolift_pfep_path):
+            shutil.copy2(cargolift_pfep_path, caminho_pasta_hoje)
+            
+        # Cargolift SP - Suppliers
+        cargolift_sup_path = get_path_from_config('cargolift_supplier_terms', 'base_matriz', q)
+        if cargolift_sup_path and os.path.exists(cargolift_sup_path):
+            shutil.copy2(cargolift_sup_path, caminho_pasta_hoje)
+            
+        # 2. Mover arquivos da Demanda para Entradas (limpeza)
+        if q: q.put(("status", "Limpando pasta Demanda..."))
+        pasta_demanda = os.path.join(caminho_base, CONFIG['paths']['folders']['base_demanda'])
+        if os.path.exists(pasta_demanda):
+            for nome_arquivo in os.listdir(pasta_demanda):
+                caminho_arquivo = os.path.join(pasta_demanda, nome_arquivo)
+                if os.path.isfile(caminho_arquivo):
+                    shutil.move(caminho_arquivo, os.path.join(caminho_entradas_hoje, nome_arquivo))
+                    
+        # 3. Mover arquivos de Planilhas_Recebidos para Entradas (limpeza)
+        if q: q.put(("status", "Limpando pasta Planilhas_Recebidos..."))
+        pasta_recebidos = os.path.join(caminho_base, CONFIG['paths']['folders']['base_planilhas_recebidos'])
+        if os.path.exists(pasta_recebidos):
+            for nome_arquivo in os.listdir(pasta_recebidos):
+                caminho_arquivo = os.path.join(pasta_recebidos, nome_arquivo)
+                if os.path.isfile(caminho_arquivo) and not nome_arquivo.startswith('~$'):
+                    shutil.move(caminho_arquivo, os.path.join(caminho_entradas_hoje, nome_arquivo))
+                    
+        if q: q.put(("status", f"Arquivamento concluído com sucesso em: {nome_pasta_diaria}"))
+        
+    except Exception as e:
+        if q: q.put(("status", f"ERRO durante o arquivamento/limpeza: {e}"))
+        print(f"Erro no limpar_e_arquivar: {e}")
 
 
 
