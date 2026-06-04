@@ -84,7 +84,8 @@
     ],
     "fpt_filter_criteria_sp": [
       "Milk Run SP",
-      "Line Haul SP"
+      "Line Haul SP",
+       "MR SUL"
     ],
     "fpt_filter_criteria_sul": [
       "MR SUL"

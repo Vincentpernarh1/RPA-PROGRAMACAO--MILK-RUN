@@ -775,7 +775,7 @@ def progrma_cargolift(arquivo_cargolift_sp_PFEP, arquivo_cargolift_sp_Supplier, 
 
     # PFEP columns go to AQ (43)
     filter_range_pfep = ws_pfep.range(f"A1:AQ{last_row_pfep}")
-    filter_range_pfep.api.AutoFilter(Field:=43, Criteria1:="CARGOLIFT")
+    filter_range_pfep.api.AutoFilter(Field:=43, Criteria1:=["CARGOLIFT", "CARGOLIFT SUL"], Operator:=xw.constants.AutoFilterOperator.xlFilterValues)
 
     # Collect visible data
     try:
@@ -1239,13 +1239,8 @@ def Copiar_planejamentos_para_FPT_BT(q=None, cargolift_prog_FPT = None , wb_carg
         sheet_wb_cargolift_sp_PFEP = wb_cargolift_sp_PFEP.sheets[CONFIG['paths']['sheet_names']['pfep_main_sheet']] # Assuming 'PFEP'
 
         filter_criteria = CONFIG['business_logic']['fpt_filter_criteria_sp']
-        filter_criteria_sul = CONFIG['business_logic']['fpt_filter_criteria_sul']
 
         xlCellTypeVisible = 12 # VBA Constant for SpecialCells
-
-        # --- Initialize lists for SUL data ---
-        Dado_PFEP_sul_a_colar = []
-        Dado_supplier_sul_a_colar = []
 
         # --- 1. Process Suppliers DB ---
         q.put(("status", "Processando FPT Suppliers DB..."))
@@ -1258,7 +1253,7 @@ def Copiar_planejamentos_para_FPT_BT(q=None, cargolift_prog_FPT = None , wb_carg
             filter_range_sup = sheet_sup.range(f'A2:X{last_row_sup}')
             data_range_sup = sheet_sup.range(f'A3:X{last_row_sup}')
             
-            # --- Apply filter for SP ---
+            # --- Apply filter for SP/SUL ---
             filter_range_sup.api.AutoFilter(Field:=24, Criteria1:=filter_criteria, Operator:=xw.constants.AutoFilterOperator.xlFilterValues)
             
             try:
@@ -1272,37 +1267,16 @@ def Copiar_planejamentos_para_FPT_BT(q=None, cargolift_prog_FPT = None , wb_carg
                         data_sup.append(values)
                 
                 if not data_sup:
-                    q.put(("status", "Nenhum dado SP visível em FPT Suppliers."))
+                    q.put(("status", "Nenhum dado visível em FPT Suppliers."))
                 else:
                     
                     next_row_sup = sheet_wb_cargolift_sp_Supplier.range('A' + str(sheet_wb_cargolift_sp_Supplier.cells.last_cell.row)).end('up').row + 1
                     sheet_wb_cargolift_sp_Supplier.range(f'A{next_row_sup}').value = data_sup
-                    q.put(("status", f"{len(data_sup)} linhas SP coladas em 'Cargolift SP - Suppliers DB Wk '"))
+                    q.put(("status", f"{len(data_sup)} linhas coladas em 'Cargolift SP - Suppliers DB Wk '"))
 
             except Exception as e:
-                q.put(("status", f"Nenhum dado SP encontrado no filtro FPT Suppliers: {e}"))
+                q.put(("status", f"Nenhum dado encontrado no filtro FPT Suppliers: {e}"))
             
-            # --- Apply filter for SUL ---
-            q.put(("status", "Filtrando FPT Suppliers para MR SUL..."))
-            filter_range_sup.api.AutoFilter(Field:=24, Criteria1:=filter_criteria_sul, Operator:=xw.constants.AutoFilterOperator.xlFilterValues)
-            
-            try:
-                visible_cells_sup_sul = data_range_sup.api.SpecialCells(xlCellTypeVisible)
-                for area in visible_cells_sup_sul.Areas:
-                    values = sheet_sup.range(area.Address).value
-                    if isinstance(values, list) and isinstance(values[0], list):
-                        Dado_supplier_sul_a_colar.extend(values)
-                    else:
-                        Dado_supplier_sul_a_colar.append(values)
-                
-                if not Dado_supplier_sul_a_colar:
-                    q.put(("status", "Nenhum dado SUL visível em FPT Suppliers."))
-                else:
-                    q.put(("status", f"{len(Dado_supplier_sul_a_colar)} linhas SUL coletadas de Suppliers."))
-
-            except Exception as e:
-                 q.put(("status", f"Nenhum dado SUL encontrado no filtro FPT Suppliers: {e}"))
-
             sheet_sup.api.AutoFilterMode = False # Clear filter
         else:
             q.put(("status", "Nenhum dado para processar em FPT Suppliers DB."))
@@ -1318,7 +1292,7 @@ def Copiar_planejamentos_para_FPT_BT(q=None, cargolift_prog_FPT = None , wb_carg
             filter_range_pfep = sheet_pfep.range(f'A3:AX{last_row_pfep}')
             data_range_pfep = sheet_pfep.range(f'M4:BI{last_row_pfep}')
             
-            # --- Apply filter for SP ---
+            # --- Apply filter for SP/SUL ---
             filter_range_pfep.api.AutoFilter(Field:=50, Criteria1:=filter_criteria, Operator:=xw.constants.AutoFilterOperator.xlFilterValues)
             
             try:
@@ -1332,37 +1306,16 @@ def Copiar_planejamentos_para_FPT_BT(q=None, cargolift_prog_FPT = None , wb_carg
                         data_pfep.append(values)
                 
                 if not data_pfep:
-                    q.put(("status", "Nenhum dado SP visível em FPT PFEP."))
+                    q.put(("status", "Nenhum dado visível em FPT PFEP."))
                 else:
 
                     next_row_pfep = sheet_wb_cargolift_sp_PFEP.range('A' + str(sheet_wb_cargolift_sp_PFEP.cells.last_cell.row)).end('up').row + 1
                     sheet_wb_cargolift_sp_PFEP.range(f'A{next_row_pfep}').value = data_pfep
-                    q.put(("status", f"{len(data_pfep)} linhas SP coladas em 'PFEP'"))
+                    q.put(("status", f"{len(data_pfep)} linhas coladas em 'PFEP'"))
                     
             except Exception as e:
-                q.put(("status", f"Nenhum dado SP encontrado no filtro FPT PFEP: {e}"))
+                q.put(("status", f"Nenhum dado encontrado no filtro FPT PFEP: {e}"))
                 
-            # --- Apply filter for SUL ---
-            q.put(("status", "Filtrando FPT PFEP para MR SUL..."))
-            filter_range_pfep.api.AutoFilter(Field:=50, Criteria1:=filter_criteria_sul, Operator:=xw.constants.AutoFilterOperator.xlFilterValues)
-
-            try:
-                visible_cells_pfep_sul = data_range_pfep.api.SpecialCells(xlCellTypeVisible)
-                for area in visible_cells_pfep_sul.Areas:
-                    values = sheet_pfep.range(area.Address).value
-                    if isinstance(values, list) and isinstance(values[0], list):
-                        Dado_PFEP_sul_a_colar.extend(values)
-                    else:
-                        Dado_PFEP_sul_a_colar.append(values)
-
-                if not Dado_PFEP_sul_a_colar:
-                    q.put(("status", "Nenhum dado SUL visível em FPT PFEP."))
-                else:
-                    q.put(("status", f"{len(Dado_PFEP_sul_a_colar)} linhas SUL coletadas de PFEP."))
-            
-            except Exception as e:
-                q.put(("status", f"Nenhum dado SUL encontrado no filtro FPT PFEP: {e}"))
-
             sheet_pfep.api.AutoFilterMode = False # Clear filter
         else:
             q.put(("status", "Nenhum dado para processar em FPT PFEP."))
@@ -1382,23 +1335,13 @@ def Copiar_planejamentos_para_FPT_BT(q=None, cargolift_prog_FPT = None , wb_carg
         q.put(("status", "Arquivo FPT BT fechado."))
 
     
-    # --- Call function to paste SUL data ---
+    # --- Call function to process Mopar and CKD ---
     q.put(("progress",96))
-    if Programacao_FPT_Sul and programacao_fiasa_path:
-        if Dado_PFEP_sul_a_colar or Dado_supplier_sul_a_colar:
-            Copiar_e_Colar_Programacao_Sul(Programacao_FPT_Sul_path = Programacao_FPT_Sul, q = q,
-                                            Dado_PFEP_a_colar = Dado_PFEP_sul_a_colar, 
-                                            Dado_supplier_a_colar = Dado_supplier_sul_a_colar ,
-                                            programacao_fiasa_path = programacao_fiasa_path,
-                                            Programacao_CKD_path = Programacao_CKD_path,
-                                            wb_cargolift_sp_PFEP = wb_cargolift_sp_PFEP,
-                                            wb_cargolift_sp_Supplier = wb_cargolift_sp_Supplier
-                                        
-                                            )
-        else:
-            q.put(("status", "Nenhum dado SUL encontrado. Pulando cópia para arquivo SUL."))
-    else:
-        q.put(("status", "Caminho para Programacao_FPT_Sul não fornecido. Pulando cópia SUL."))
+    print("processing Mopar and CKD")
+    data_ckd_pfep_sp, data_ckd_supplier_sp = _ler_dados_ckd(q, Programacao_CKD_path)
+    copiar_e_colar_SP(q= q , data_ckd_pfep_sp = data_ckd_pfep_sp, data_ckd_supplier_sp =  data_ckd_supplier_sp, wb_cargolift_sp_PFEP = wb_cargolift_sp_PFEP,
+                                            wb_cargolift_sp_Supplier = wb_cargolift_sp_Supplier)
+    print("Done processing Mopar and CKD")
 
 
 
@@ -1406,109 +1349,23 @@ xlCellTypeVisible = 12
 last_col_format_index = 400
 
 
-
-def _ler_dados_fiasa(q, programacao_fiasa_path):
-    """
-    Abre o arquivo FIASA, lê os dados SUL e fecha o arquivo.
-    Retorna (data_pfep, data_supplier).
-    """
-    data_fiasa_pfep = []
-    data_fiasa_sup = []
-    app_programacao_fiasa = None
-    wb_programacao_fiasa = None
-
-    if not programacao_fiasa_path:
-        q.put(("status", "AVISO: Caminho para 'programacao_fiasa' não fornecido. Pulando esta etapa."))
-        return data_fiasa_pfep, data_fiasa_sup
-
-    try:
-        q.put(("status", f"Abrindo arquivo FIASA para ler dados: {programacao_fiasa_path}"))
-        app_programacao_fiasa = xw.App(visible=True, add_book=False)
-        app_programacao_fiasa.display_alerts = False
-        app_programacao_fiasa.api.AskToUpdateLinks = False
-        wb_programacao_fiasa = app_programacao_fiasa.books.open(programacao_fiasa_path, update_links=False, read_only=True)
-
-        sheets_wb_programacao_fiasa_PFEP = wb_programacao_fiasa.sheets[CONFIG['paths']['sheet_names']['pfep_main_sheet']]
-        sheets_wb_programacao_fiasa_SUPPLIER = wb_programacao_fiasa.sheets[CONFIG['paths']['sheet_names']['supplier_db_sheet']]
-        
-        filter_sul = 'CARGOLIFT SUL'
-
-        # --- Read FIASA PFEP ---
-        q.put(("status", "Lendo dados FIASA PFEP..."))
-        sheet_fiasa_pfep = sheets_wb_programacao_fiasa_PFEP
-        sheet_fiasa_pfep.api.AutoFilterMode = False
-        last_row_f_pfep = sheet_fiasa_pfep.range('A' + str(sheet_fiasa_pfep.cells.last_cell.row)).end('up').row
-        
-        if last_row_f_pfep > 1:
-            filter_range_f_pfep = sheet_fiasa_pfep.range(f'A1:AQ{last_row_f_pfep}')
-            data_range_f_pfep = sheet_fiasa_pfep.range(f'A2:AQ{last_row_f_pfep}')
-            filter_range_f_pfep.api.AutoFilter(Field:=43, Criteria1:=filter_sul)
-            try:
-                visible_cells = data_range_f_pfep.api.SpecialCells(xlCellTypeVisible)
-                for area in visible_cells.Areas:
-                    values = sheet_fiasa_pfep.range(area.Address).value
-                    if isinstance(values, list) and isinstance(values[0], list):
-                        data_fiasa_pfep.extend(values)
-                    else:
-                        data_fiasa_pfep.append(values)
-            except Exception:
-                q.put(("status", "Nenhum dado 'CARGOLIFT SUL' em FIASA PFEP."))
-            sheet_fiasa_pfep.api.AutoFilterMode = False
-        
-        # --- Read FIASA SUPPLIER ---
-        q.put(("status", "Lendo dados FIASA Suppliers..."))
-        sheet_fiasa_sup = sheets_wb_programacao_fiasa_SUPPLIER
-        sheet_fiasa_sup.api.AutoFilterMode = False
-        last_row_f_sup = sheet_fiasa_sup.range('A' + str(sheet_fiasa_sup.cells.last_cell.row)).end('up').row
-        
-        if last_row_f_sup > 1:
-            filter_range_f_sup = sheet_fiasa_sup.range(f'A1:AB{last_row_f_sup}')
-            data_range_f_sup = sheet_fiasa_sup.range(f'A2:AB{last_row_f_sup}')
-            filter_range_f_sup.api.AutoFilter(Field:=28, Criteria1:=filter_sul)
-            try:
-                visible_cells_sup = data_range_f_sup.api.SpecialCells(xlCellTypeVisible)
-                for area in visible_cells_sup.Areas:
-                    values = sheet_fiasa_sup.range(area.Address).value
-                    if isinstance(values, list) and isinstance(values[0], list):
-                        data_fiasa_sup.extend(values)
-                    else:
-                        data_fiasa_sup.append(values)
-            except Exception:
-                q.put(("status", "Nenhum dado 'CARGOLIFT SUL' em FIASA Suppliers."))
-            sheet_fiasa_sup.api.AutoFilterMode = False
-
-    except Exception as e:
-        q.put(("status", f"ERRO ao ler arquivo FIASA: {e}"))
-    finally:
-        if wb_programacao_fiasa:
-            wb_programacao_fiasa.close()
-        if app_programacao_fiasa:
-            app_programacao_fiasa.quit()
-        q.put(("status", "Arquivo Leitura (FIASA) fechado."))
-    
-    return data_fiasa_pfep, data_fiasa_sup
-
-
-
 def _ler_dados_ckd(q, Programacao_CKD_path):
     """
-    Abre o arquivo CKD, lê os dados SUL e SP (não-SUL) e fecha o arquivo.
-    Retorna (data_pfep_sul, data_supplier_sul, data_pfep_sp, data_supplier_sp).
+    Abre o arquivo CKD, lê os dados (SUL e SP combinados) e fecha o arquivo.
+    Retorna (data_ckd_pfep_sp, data_ckd_supplier_sp).
     """
-    data_ckd_pfep_mapped = []
-    data_ckd_supplier_mapped = []
-    data_ckd_pfep_sp = []       # <-- NOVO: Para dados PFEP SP
-    data_ckd_supplier_sp = []  # <-- NOVO: Para dados Supplier SP
+    data_ckd_pfep_sp = []
+    data_ckd_supplier_sp = []
     
     app_programacao_ckd = None
     wb_programacao_ckd = None
-    filter_sul = 'CARGOLIFT SUL'
-    filter_cargo = 'CARGOLIFT'
+    
+    # Combined filter for both SP and SUL
+    filter_criteria = ["CARGOLIFT", "CARGOLIFT SUL"]
 
     if not Programacao_CKD_path:
         q.put(("status", "AVISO: Caminho para 'Programacao_CKD' não fornecido. Pulando esta etapa."))
-        # <-- ATUALIZADO: Retornar 4 listas
-        return data_ckd_pfep_mapped, data_ckd_supplier_mapped, data_ckd_pfep_sp, data_ckd_supplier_sp
+        return data_ckd_pfep_sp, data_ckd_supplier_sp
 
     try:
         q.put(("status", f"Abrindo arquivo CKD para ler dados: {Programacao_CKD_path}"))
@@ -1528,42 +1385,8 @@ def _ler_dados_ckd(q, Programacao_CKD_path):
                 filter_range_ckd_pfep = sheet_ckd_pfep.range(f'A1:W{last_row_ckd_pfep}')
                 data_range_ckd_pfep = sheet_ckd_pfep.range(f'A2:CC{last_row_ckd_pfep}') # Read A:CC (81 cols)
                 
-                # --- 1. LER DADOS SUL ---
-                filter_range_ckd_pfep.api.AutoFilter(Field:=23, Criteria1:=filter_sul)
-                try:
-                    visible_cells = data_range_ckd_pfep.api.SpecialCells(xlCellTypeVisible)
-                    raw_data_pfep = []
-                    for area in visible_cells.Areas:
-                        values = sheet_ckd_pfep.range(area.Address).value
-                        if isinstance(values, list) and isinstance(values[0], list):
-                            raw_data_pfep.extend(values)
-                        else:
-                            raw_data_pfep.append(values)
-                    
-                    q.put(("status", "Mapeando colunas CKD PFEP (SUL)..."))
-                    for read_row in raw_data_pfep:
-                        # read_row is a list of 81 values (A:CC)
-                        try:
-                            # --- 1. PERFORM MAPPING FIRST ---
-                            # Source BC (index 54) = Source N (index 13)
-                            read_row[54] = read_row[13] 
-
-                            # --- 2. NOW, COPY THE FINAL DATA ---
-                            new_row = [None] * last_col_format_index
-                            # Copy Source AP:CC (indexes 41 to 80) from the *mutated* row
-                            base_data = read_row[41:81] 
-                            new_row[0:len(base_data)] = base_data # Paste into Dest A:AN
-                            
-                            data_ckd_pfep_mapped.append(new_row)
-                        except IndexError:
-                            q.put(("status", "ERRO: A linha no CKD PFEP é muito curta para o mapeamento."))
-                except Exception as e:
-                    q.put(("status", f"Nenhum dado 'CARGOLIFT SUL' em CKD PFEP: {e}"))
-                
-                # --- 2. LER DADOS SP (NÃO-SUL) ---
-                q.put(("status", "Lendo dados CKD PFEP (SP)..."))
-                # Reaplicar filtro para "diferente de SUL"
-                filter_range_ckd_pfep.api.AutoFilter(Field:=23, Criteria1:= filter_cargo)
+                # --- LER DADOS COMBINADOS ---
+                filter_range_ckd_pfep.api.AutoFilter(Field:=23, Criteria1:=filter_criteria, Operator:=xw.constants.AutoFilterOperator.xlFilterValues)
                 try:
                     visible_cells_sp = data_range_ckd_pfep.api.SpecialCells(xlCellTypeVisible)
                     raw_data_pfep_sp = []
@@ -1574,21 +1397,22 @@ def _ler_dados_ckd(q, Programacao_CKD_path):
                         else:
                             raw_data_pfep_sp.append(values)
 
-                    q.put(("status", "Mapeando colunas CKD PFEP (SP)..."))
-                    # Aplicar o MESMO mapeamento
+                    q.put(("status", "Mapeando colunas CKD PFEP..."))
                     for read_row in raw_data_pfep_sp:
                         try:
+                            # --- 1. PERFORM MAPPING FIRST ---
                             read_row[54] = read_row[13] 
+                            
+                            # --- 2. NOW, COPY THE FINAL DATA ---
                             new_row = [None] * last_col_format_index
                             base_data = read_row[41:81] 
                             new_row[0:len(base_data)] = base_data
-                            data_ckd_pfep_sp.append(new_row) # <-- Salvar na lista SP
+                            data_ckd_pfep_sp.append(new_row)
                         except IndexError:
-                            q.put(("status", "ERRO: A linha no CKD PFEP (SP) é muito curta para o mapeamento."))
+                            q.put(("status", "ERRO: A linha no CKD PFEP é muito curta para o mapeamento."))
                 except Exception as e:
-                    q.put(("status", f"Nenhum dado 'SP' em CKD PFEP: {e}"))
+                    q.put(("status", f"Nenhum dado 'CARGOLIFT' em CKD PFEP: {e}"))
 
-                # <-- MOVIDO: Desligar filtro APÓS ler SUL e SP
                 sheet_ckd_pfep.api.AutoFilterMode = False 
                 
         except Exception as e:
@@ -1598,7 +1422,6 @@ def _ler_dados_ckd(q, Programacao_CKD_path):
         q.put(("status", "Lendo dados CKD Suppliers..."))
         try:
             sheet_ckd_sup = wb_programacao_ckd.sheets[CONFIG['paths']['sheet_names']['ckd_supplier']]
-
             sheet_ckd_sup.api.AutoFilterMode = False
             last_row_ckd_sup = sheet_ckd_sup.range('L' + str(sheet_ckd_sup.cells.last_cell.row)).end('up').row
 
@@ -1606,46 +1429,8 @@ def _ler_dados_ckd(q, Programacao_CKD_path):
                 filter_range_ckd_sup = sheet_ckd_sup.range(f'A1:L{last_row_ckd_sup}')
                 data_range_ckd_sup = sheet_ckd_sup.range(f'A2:BD{last_row_ckd_sup}') # Read A:BD (56 cols)
                 
-                # --- 1. LER DADOS SUL ---
-                filter_range_ckd_sup.api.AutoFilter(Field:=12, Criteria1:=filter_sul)
-                try:
-                    visible_cells_sup = data_range_ckd_sup.api.SpecialCells(xlCellTypeVisible)
-                    raw_data_sup = []
-                    for area in visible_cells_sup.Areas:
-                        values = sheet_ckd_sup.range(area.Address).value
-                        if isinstance(values, list) and isinstance(values[0], list):
-                            raw_data_sup.extend(values)
-                        else:
-                            raw_data_sup.append(values)
-
-                    q.put(("status", "Mapeando colunas CKD Supplier (SUL)..."))
-                    for read_row in raw_data_sup:
-                        # read_row is a list of 56 values (A:BD)
-                        try:
-                            # --- 1. PERFORM MAPPING FIRST ---
-                            read_row[32] = read_row[2] 
-                            read_row[33] = read_row[3] 
-                            read_row[34] = read_row[4] 
-                            read_row[35] = read_row[5] 
-                            read_row[36] = read_row[6] 
-
-                            # --- 2. NOW, COPY THE FINAL DATA ---
-                            new_row = [None] * last_col_format_index
-                            # Copy Source AD:BC (indexes 29 to 54) from the *mutated* row
-                            base_data = read_row[29:55] 
-                            new_row[0:len(base_data)] = base_data # Paste into Dest A:Z
-                            
-                            data_ckd_supplier_mapped.append(new_row)
-                        except IndexError:
-                            q.put(("status", "ERRO: A linha no CKD é muito curta para o mapeamento."))
-                        
-                except Exception as e:
-                    q.put(("status", f"Nenhum dado 'CARGOLIFT SUL' em CKD Suppliers: {e}"))
-                
-                # --- 2. LER DADOS SP (NÃO-SUL) ---
-                q.put(("status", "Lendo dados CKD Suppliers (SP)..."))
-                # Reaplicar filtro para "diferente de SUL"
-                filter_range_ckd_sup.api.AutoFilter(Field:=12, Criteria1:= filter_cargo)
+                # --- LER DADOS COMBINADOS ---
+                filter_range_ckd_sup.api.AutoFilter(Field:=12, Criteria1:=filter_criteria, Operator:=xw.constants.AutoFilterOperator.xlFilterValues)
                 try:
                     visible_cells_sup_sp = data_range_ckd_sup.api.SpecialCells(xlCellTypeVisible)
                     raw_data_sup_sp = []
@@ -1656,28 +1441,28 @@ def _ler_dados_ckd(q, Programacao_CKD_path):
                         else:
                             raw_data_sup_sp.append(values)
 
-                    q.put(("status", "Mapeando colunas CKD Supplier (SP)..."))
-                    # Aplicar o MESMO mapeamento
+                    q.put(("status", "Mapeando colunas CKD Supplier..."))
                     for read_row in raw_data_sup_sp:
                         try:
+                            # --- 1. PERFORM MAPPING FIRST ---
                             read_row[32] = read_row[2] 
                             read_row[33] = read_row[3] 
                             read_row[34] = read_row[4] 
                             read_row[35] = read_row[5] 
                             read_row[36] = read_row[6] 
                             
+                            # --- 2. NOW, COPY THE FINAL DATA ---
                             new_row = [None] * last_col_format_index
                             base_data = read_row[29:55] 
                             new_row[0:len(base_data)] = base_data
                             
-                            data_ckd_supplier_sp.append(new_row) # <-- Salvar na lista SP
+                            data_ckd_supplier_sp.append(new_row)
                         except IndexError:
-                            q.put(("status", "ERRO: A linha no CKD (SP) é muito curta para o mapeamento."))
+                            q.put(("status", "ERRO: A linha no CKD é muito curta para o mapeamento."))
                         
                 except Exception as e:
-                    q.put(("status", f"Nenhum dado 'SP' em CKD Suppliers: {e}"))
+                    q.put(("status", f"Nenhum dado 'CARGOLIFT' em CKD Suppliers: {e}"))
                 
-                # <-- MOVIDO: Desligar filtro APÓS ler SUL e SP
                 sheet_ckd_sup.api.AutoFilterMode = False 
                 
         except Exception as e:
@@ -1692,147 +1477,8 @@ def _ler_dados_ckd(q, Programacao_CKD_path):
             app_programacao_ckd.quit()
         q.put(("status", "Arquivo Leitura (CKD) fechado."))
     
-    # <-- ATUALIZADO: Retornar 4 listas
-    return data_ckd_pfep_mapped, data_ckd_supplier_mapped, data_ckd_pfep_sp, data_ckd_supplier_sp
+    return data_ckd_pfep_sp, data_ckd_supplier_sp
 
-
-
-def _colar_dados_no_sul(q, Programacao_FPT_Sul_path, dados_por_origem):
-    """
-    Abre o arquivo SUL de destino e cola todos os dados de todas as origens.
-    """
-    app_cargolift_prog_FPT_sul = None
-    wb_cargolift_prog_FPT_sul = None
-
-    try:
-        q.put(("status", f"Abrindo arquivo SUL: {Programacao_FPT_Sul_path}"))
-        app_cargolift_prog_FPT_sul = xw.App(visible=False, add_book=False)
-        app_cargolift_prog_FPT_sul.display_alerts = False
-        app_cargolift_prog_FPT_sul.api.AskToUpdateLinks = False
-        wb_cargolift_prog_FPT_sul = app_cargolift_prog_FPT_sul.books.open(Programacao_FPT_Sul_path, update_links=False, read_only=False)
-
-        sheet_sup_sul = wb_cargolift_prog_FPT_sul.sheets[CONFIG['paths']['sheet_names']['sul_supplier']]
-        sheet_pfep_sul = wb_cargolift_prog_FPT_sul.sheets[CONFIG['paths']['sheet_names']['sul_pfep']]
-
-        # --- Limpar colunas ---
-        try:
-            q.put(("status", "Limpando sheets de destino SUL..."))
-            sheet_sup_sul.api.Unprotect()
-            last_row_sup = sheet_sup_sul.cells.last_cell.row
-            if last_row_sup > 1:
-                sheet_sup_sul.range((2, 1), (last_row_sup, sheet_sup_sul.cells.last_cell.column)).clear_contents()
-            
-            sheet_pfep_sul.api.Unprotect()
-            last_row_pfep = sheet_pfep_sul.cells.last_cell.row
-            if last_row_pfep > 1:
-                sheet_pfep_sul.range((2, 1), (last_row_pfep, sheet_pfep_sul.cells.last_cell.column)).clear_contents()
-        except Exception as e:
-            q.put(("status", f"ERRO ao limpar sheets SUL: {e}"))
-            raise # Pára o processo se não puder limpar
-
-        # --- Colar todos os dados ---
-        for origem, (data_supplier, data_pfep) in dados_por_origem.items():
-            
-            # Colar Supplier
-            if data_supplier:
-                try:
-                    next_row_sup = sheet_sup_sul.range('A' + str(sheet_sup_sul.cells.last_cell.row)).end('up').row + 1
-                    if next_row_sup == 2 and sheet_sup_sul.range('A1').value is None: # Se A1 estiver vazia, next_row é 2. Começar em 1.
-                         next_row_sup = 1
-                    if sheet_sup_sul.range('A1').value is not None and next_row_sup == 1: # Se A1 tiver header, começar em 2.
-                         next_row_sup = 2
-                    if next_row_sup == 2 and sheet_sup_sul.range('A2').value is not None: # Se A2 já tiver dados
-                         next_row_sup = sheet_sup_sul.range('A' + str(sheet_sup_sul.cells.last_cell.row)).end('up').row + 1
-                    
-                    
-                    start_row_sup = next_row_sup
-                    sheet_sup_sul.range(f'A{start_row_sup}').value = data_supplier
-                    q.put(("status", f"{len(data_supplier)} linhas de {origem} coladas em Suppliers SUL."))
-                    
-                    # Aplicar formatação
-                    end_row_sup = start_row_sup + len(data_supplier) - 1
-                    source_format_range = sheet_sup_sul.range((2, 1), (2, last_col_format_index))
-                    dest_format_range = sheet_sup_sul.range((start_row_sup, 1), (end_row_sup, last_col_format_index))
-                    source_format_range.copy()
-                    dest_format_range.paste(paste='formats')
-                    app_cargolift_prog_FPT_sul.api.CutCopyMode = False
-                except Exception as e:
-                    q.put(("status", f"ERRO ao colar dados {origem} Supplier: {e}"))
-            
-            # Colar PFEP
-            if data_pfep:
-                try:
-                    next_row_pfep = sheet_pfep_sul.range('A' + str(sheet_pfep_sul.cells.last_cell.row)).end('up').row + 1
-                    if next_row_pfep == 2 and sheet_pfep_sul.range('A1').value is None: next_row_pfep = 1
-                    if sheet_pfep_sul.range('A1').value is not None and next_row_pfep == 1: next_row_pfep = 2
-                    if next_row_pfep == 2 and sheet_pfep_sul.range('A2').value is not None:
-                        next_row_pfep = sheet_pfep_sul.range('A' + str(sheet_pfep_sul.cells.last_cell.row)).end('up').row + 1
-                        
-                    start_row_pfep = next_row_pfep
-                    sheet_pfep_sul.range(f'A{start_row_pfep}').value = data_pfep
-                    q.put(("status", f"{len(data_pfep)} linhas de {origem} coladas em PFEP SUL."))
-
-                    # Aplicar formatação
-                    end_row_pfep = start_row_pfep + len(data_pfep) - 1
-                    source_format_range = sheet_pfep_sul.range((2, 1), (2, last_col_format_index))
-                    dest_format_range = sheet_pfep_sul.range((start_row_pfep, 1), (end_row_pfep, last_col_format_index))
-                    source_format_range.copy()
-                    dest_format_range.paste(paste='formats')
-                    app_cargolift_prog_FPT_sul.api.CutCopyMode = False
-                except Exception as e:
-                    q.put(("status", f"ERRO ao colar dados {origem} PFEP: {e}"))
-
-        # --- SAVE & CLOSE SUL FILE ---
-        q.put(("status", "Salvando arquivo SUL..."))
-        q.put(("progress",98))
-        wb_cargolift_prog_FPT_sul.save()
-        q.put(("status", "Arquivo SUL salvo com sucesso."))
-        wb_cargolift_prog_FPT_sul.close()
-        wb_cargolift_prog_FPT_sul = None
-        q.put(("status", "Arquivo SUL Fechado!"))
-
-    except Exception as e:
-        q.put(("status", f"ERRO GERAL ao processar arquivo SUL: {e}"))
-        print(f"ERRO GERAL na função SUL: {e}")
-        if wb_cargolift_prog_FPT_sul:
-            wb_cargolift_prog_FPT_sul.close()
-            
-    finally:
-        if app_cargolift_prog_FPT_sul:
-            app_cargolift_prog_FPT_sul.quit()
-        q.put(("status", "Processo SUL concluído."))
-
-
-# --- Main Function (Refactored) ---
-def Copiar_e_Colar_Programacao_Sul(Programacao_FPT_Sul_path =  None, q = None , Dado_PFEP_a_colar =  None, Dado_supplier_a_colar =  None,
-                                    programacao_fiasa_path =  None, Programacao_CKD_path =  None, wb_cargolift_sp_PFEP = None,
-                                            wb_cargolift_sp_Supplier = None):
-    
-    # 1. Ler dados SUL de todas as fontes
-    # (Os dados do FPT já vêm como argumento)
-    data_fiasa_pfep, data_fiasa_sup = _ler_dados_fiasa(q, programacao_fiasa_path)
-    data_ckd_pfep, data_ckd_sup,data_ckd_pfep_sp,data_ckd_supplier_sp = _ler_dados_ckd(q, Programacao_CKD_path)
-
-    # 2. Organizar dados para colagem
-    # (Mantendo a ordem: FPT, depois FIASA, depois CKD)
-    dados_para_colar = {
-        "FPT": (Dado_supplier_a_colar, Dado_PFEP_a_colar),
-        "FIASA": (data_fiasa_sup, data_fiasa_pfep),
-        "CKD": (data_ckd_sup, data_ckd_pfep)
-    }
-
-    # 3. Colar todos os dados no arquivo de destino
-    if Programacao_FPT_Sul_path:
-        _colar_dados_no_sul(q, Programacao_FPT_Sul_path, dados_para_colar)
-    else:
-        q.put(("status", "ERRO: Caminho para o arquivo SUL de destino não fornecido."))
-
-
-    print("processing Mopar and CKD")
-    copiar_e_colar_SP(q= q , data_ckd_pfep_sp = data_ckd_pfep_sp, data_ckd_supplier_sp =  data_ckd_supplier_sp, wb_cargolift_sp_PFEP = wb_cargolift_sp_PFEP,
-                                            wb_cargolift_sp_Supplier = wb_cargolift_sp_Supplier)
-    print("Done processing Mopar and CKD")
-    
 
 
 
