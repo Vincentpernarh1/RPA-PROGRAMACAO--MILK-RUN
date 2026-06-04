@@ -1209,6 +1209,59 @@ def Copiar_planejamentos_para_cargolift_Arquivos(wb_cargolift = None,q = None) :
     else:
         q.put(("status", "AVISO: Arquivo 'FPT BT' não encontrado em Planilhas_Recebidos."))
         
+    # ================= FINAL FILTERING =================
+    q.put(("status", "Aplicando filtros finais nos arquivos Cargolift SP..."))
+    
+    try:
+        # 1. Filtro no Supplier DB
+        sheet_supplier = wb_cargolift_sp_Supplier.sheets[CONFIG['paths']['sheet_names']['cargolift_sp_supplier_sheet']]
+        
+        if sheet_supplier.api.AutoFilterMode:
+            sheet_supplier.api.AutoFilterMode = False
+            
+        # Scan Row 89, Columns I to N (9 to 14)
+        target_col_sup = None
+        for col_idx in range(9, 15):
+            val = sheet_supplier.range((89, col_idx)).value
+            if val is not None and str(val).strip() != "":
+                target_col_sup = col_idx
+                break
+                
+        if target_col_sup:
+            q.put(("status", f"Aplicando filtro > 0 na coluna {target_col_sup} do Supplier DB..."))
+            last_row_sup = sheet_supplier.range('A' + str(sheet_supplier.cells.last_cell.row)).end('up').row
+            filter_range_sup = sheet_supplier.range((1, 1), (last_row_sup, 60)) 
+            filter_range_sup.api.AutoFilter(Field:=target_col_sup, Criteria1:=">0")
+
+        # 2. Filtro no PFEP
+        sheet_pfep = wb_cargolift_sp_PFEP.sheets[CONFIG['paths']['sheet_names']['pfep_main_sheet']]
+        
+        if sheet_pfep.api.AutoFilterMode:
+            sheet_pfep.api.AutoFilterMode = False
+
+        # Scan Row 89, Columns F to K (6 to 11)
+        target_col_pfep = None
+        for col_idx in range(6, 12):
+            val = sheet_pfep.range((89, col_idx)).value
+            if val is not None and str(val).strip() != "":
+                target_col_pfep = col_idx
+                break
+        
+        if target_col_pfep:
+            q.put(("status", f"Aplicando filtro > 0 na coluna {target_col_pfep} do PFEP..."))
+            last_row_pfep = sheet_pfep.range('A' + str(sheet_pfep.cells.last_cell.row)).end('up').row
+            filter_range_pfep = sheet_pfep.range((1, 1), (last_row_pfep, 60))
+            
+            filter_range_pfep.api.AutoFilter(Field:=target_col_pfep, Criteria1:=">0")
+            
+            q.put(("status", "Aplicando filtro adicional na coluna E (Part Weight > 0) do PFEP..."))
+            filter_range_pfep.api.AutoFilter(Field:=5, Criteria1:=">0")
+
+    except Exception as e:
+        q.put(("status", f"ERRO ao aplicar filtros finais: {e}"))
+        print(f"ERRO ao aplicar filtros finais: {e}")
+    # ===================================================
+
     # You might want to save and close the master files here or in the calling function
     q.put(("status", "Salvando arquivos finais..."))
     # try:

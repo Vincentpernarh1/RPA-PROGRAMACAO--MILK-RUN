@@ -186,7 +186,7 @@ playwright install chromium
 To generate the executable, run:
 
 ```powershell
-pyinstaller --noconfirm --onefile --windowed --noconsole --name "RPA Milk Run" --icon "C:/Users/perna/Desktop/STALLANTIS/RPA Pagamentos/MilRun.ico" --add-data "C:\Users\perna\AppData\Local\ms-playwright\chromium-1187\chrome-win;ms-playwright\chromium-1187\chrome-win" App.py
+pyinstaller --noconfirm --onefile --windowed --noconsole --name "RPA Milk Run" --icon "C:/Users/perna/Desktop/STALLANTIS/RPA Milk Run/MilRun.ico" --add-data "C:\Users\perna\AppData\Local\ms-playwright\chromium-1187\chrome-win;ms-playwright\chromium-1187\chrome-win" App.py
 ```
 
 This will create a standalone executable in the `dist/` folder.
