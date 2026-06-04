@@ -35,6 +35,9 @@ xlwings>=0.30.0
 │                    GUI Layer (Tkinter)                      │
 │  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐      │
 │  │  Progress    │  │  Status Log  │  │  Controls    │      │
+│  │              │  │              │  │ • Processar  │      │
+│  │              │  │              │  │ • Download   │      │
+│  │              │  │              │  │   Toggle     │      │
 │  └──────────────┘  └──────────────┘  └──────────────┘      │
 └─────────────────────────────────────────────────────────────┘
                             ↓ Queue Communication
@@ -108,14 +111,15 @@ xlwings>=0.30.0
 ### Key Features
 
 - ✅ **Multi-threaded Architecture**: Non-blocking GUI with worker threads
+- ✅ **Flexible Download Mode**: Toggle button to enable/disable web scraping
 - ✅ **Automated Web Scraping**: Date-based demand file downloads with retry logic
 - ✅ **Intelligent File Processing**: Supports .txt, .csv, .xls, .xlsx, .xlsm, .xlsb
 - ✅ **Dynamic File Discovery**: Config-based file pattern matching
 - ✅ **Data Normalization**: SAP code & PN standardization
 - ✅ **Excel Automation**: VBA macro execution, formula injection
 - ✅ **Multi-Route Support**: SP, SUL, CKD, FIASA, FPT, MOPAR
-- ✅ **Error Handling**: Comprehensive try-catch with logging
-- ✅ **Custom Styling**: DHL/STELLANTIS branded interface
+- ✅ **Error Handling**: Comprehensive try-catch with logging and auto-recovery
+- ✅ **Custom Styling**: DHL/STELLANTIS branded interface with modern controls
 
 ## Project Structure
 
@@ -215,8 +219,24 @@ python App.py
 .\dist\"RPA Milk Run.exe"
 ```
 
+### GUI Controls
+
+#### Download Toggle Button
+The application features a toggle button to control the download mode:
+
+- **✓ Baixar demandas** (Blue, Enabled): Downloads fresh demand files from ELOG before processing
+- **✗ Baixar demandas** (Gray, Disabled): Skips download and processes existing files in Demanda/ folder
+
+**To toggle:** Click the button to switch between modes.
+
+#### Process Button
+- **▶ Processar**: Starts the automation workflow
+- Auto-disables during processing to prevent conflicts
+- **Auto re-enables** after completion, errors, or interruption (no need to restart the app)
+
 ### Automated Workflow Steps
 
+#### Mode 1: With Download Enabled (✓)
 ```
 Progress  | Step
 ----------|--------------------------------------------------
@@ -231,8 +251,24 @@ Progress  | Step
 90%       | Distributing to all routes (SUL, CKD, FPT)
 100%      | Process complete!
 ```
-
 **Expected Runtime:** 6-12 minutes (varies by data volume)
+
+#### Mode 2: Without Download (✗)
+```
+Progress  | Step
+----------|--------------------------------------------------
+10%       | Skipping download - using existing files
+30%       | Processing demand data
+50%       | Updating PFEP master file
+60%       | Processing FIASA programming
+70%       | Updating Cargolift SP
+80%       | Correcting weights and values
+90%       | Distributing to all routes (SUL, CKD, FPT)
+100%      | Process complete!
+```
+**Expected Runtime:** 4-8 minutes (faster without browser automation)
+
+**Use Case for Mode 2:** When demand files already exist in Demanda/ folder and you only need to reprocess or update calculations without re-downloading.
 
 ## Configuration
 
@@ -318,6 +354,9 @@ Corrects M3 and Kg values for missing PNs based on JSON mappings.
 
 #### Login fails / Timeout errors
 **Solution:** Update `playwright_selectors` in config.json if ELOG UI changed.
+
+#### Process button stays disabled
+**Solution:** The button auto re-enables after any error or completion. If stuck, close and restart the app.
 
 #### Excel automation errors
 **Solutions:**

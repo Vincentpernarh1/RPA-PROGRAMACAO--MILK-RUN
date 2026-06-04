@@ -17,7 +17,7 @@
       "base_bases": "Bases",
       "base_resultados": "Resultados",
       "base_matriz": "1 - MATRIZ",
-      "base_planilhas_recebidos": "Planilhas_Recebidos2"
+      "base_planilhas_recebidos": "Planilhas_Recebidos"
     },
     "files": {
       "db_fornecedores": "DB Fornecedores.xlsx",
@@ -59,7 +59,7 @@
         "Cargolift SP - PFEP  Porto Real"
       ],
       "fiape_terms": [
-        "Cargolift SP - FIAPE "
+        "Cargolift SP - FIAPE"
       ]
     },
     "sheet_names": {

@@ -48,7 +48,7 @@ def get_playwright_browser_path():
 
 
 # --- GUI UPDATE FUNCTION ---
-def update_gui(queue_instance, status_label, progress_bar, log_text):
+def update_gui(queue_instance, status_label, progress_bar, log_text, process_button=None):
     """Checks the queue for messages from the worker thread and updates the GUI."""
     try:
         while True:
@@ -62,10 +62,12 @@ def update_gui(queue_instance, status_label, progress_bar, log_text):
             elif message_type == "done":
                 status_label.config(text="Processo Concluído!")
                 progress_bar['value'] = 100
+                if process_button:
+                    process_button.config(state="normal")
                 return # Stop checking
     except queue.Empty:
         pass
-    status_label.after(100, lambda: update_gui(queue_instance, status_label, progress_bar, log_text))
+    status_label.after(100, lambda: update_gui(queue_instance, status_label, progress_bar, log_text, process_button))
 
 
 def load_credentials():
@@ -94,10 +96,8 @@ def load_modelos():
 
 
 
-def run_automation(playwright: Playwright, q: queue.Queue):
+def run_automation(playwright: Playwright, q: queue.Queue, download_enabled: bool = True):
     # Copiar_planejamentos_para_cargolift_Arquivos(q=q)
-
-    # Processar_Demandas(q)
 
     try:
         # 1. Load Credentials
@@ -128,11 +128,10 @@ def run_automation(playwright: Playwright, q: queue.Queue):
         # context = browser.new_context(viewport={'width': 1920, 'height': 1080})
         context = browser.new_context(no_viewport=True)
         page = context.new_page()
-         
-         #To start the whole process need to be activated for the full code to run
-        download_Demanda(page,url_order,q,username,password)
-       
-
+        
+        # Download files if enabled
+        if download_enabled:
+            download_Demanda(page, url_order, q, username, password)
 
     except FileNotFoundError:
         q.put(("status", "❌ Erro: Arquivo 'Credencial.json' não encontrado."))
@@ -143,17 +142,42 @@ def run_automation(playwright: Playwright, q: queue.Queue):
         page.screenshot(path="login_error.png")
     except Exception as e:
         q.put(("status", f"❌ Erro inesperado: {e}"))
+        q.put(("done", True))  # Ensure button re-enables on error
     finally:
         # 5. Clean Up and next step
         q.put(("status", "Fechando navegador..."))
         if 'context' in locals(): context.close()
         if 'browser' in locals(): browser.close()
+        
+        # After cleanup, process the downloaded files only if no error occurred
+        if download_enabled:
+            try:
+                q.put(("status", "Processando demandas..."))
+                Processar_Demandas(q)
+                q.put(("done", True))
+            except Exception as e:
+                q.put(("status", f"❌ Erro ao processar demandas: {e}"))
+                q.put(("done", True))
+
+
+def main_process(q: queue.Queue, download_enabled: bool = True):
+    try:
+        if download_enabled:
+            # Run with Playwright download
+            with sync_playwright() as playwright:
+                run_automation(playwright, q, download_enabled=True)
+        else:
+            # Skip Playwright, process directly
+            q.put(("status", "Pulando download - processando arquivos existentes..."))
+            q.put(("progress", 10))
+            Processar_Demandas(q)
+            q.put(("done", True))
+    except KeyboardInterrupt:
+        q.put(("status", "⚠️ Processo interrompido pelo usuário."))
         q.put(("done", True))
-
-
-def main_process(q: queue.Queue):
-    with sync_playwright() as playwright:
-        run_automation(playwright, q)
+    except Exception as e:
+        q.put(("status", f"❌ Erro no processo principal: {e}"))
+        q.put(("done", True))
 
 # --- TKINTER APP SETUP ---
 class App:
@@ -186,6 +210,7 @@ class App:
         style.configure('Title.TLabel', font=("Segoe UI", 16, "bold"), foreground=stellantis_blue)
         
         self.queue = queue.Queue()
+        self.download_var = tk.BooleanVar(value=True)  # Checkbox state: True = download enabled
 
         # --- Main container ---
         container = tk.Frame(root, bg="white")
@@ -229,6 +254,18 @@ class App:
         self.log_text = scrolledtext.ScrolledText(log_frame, wrap=tk.WORD, width=80, height=10, font=("Consolas", 11), bg="#F5F5F5", fg="#333333")
         self.log_text.pack(fill=tk.BOTH, expand=True)
         
+        # Download toggle button styled like a button
+        self.download_button = tk.Button(button_frame, text="✓ Baixar demandas", 
+                                        command=self.toggle_download,
+                                        font=("Segoe UI", 10, "bold"),
+                                        bg=stellantis_blue, fg="white",
+                                        activebackground=stellantis_orange,
+                                        activeforeground="white",
+                                        relief=tk.FLAT, bd=0,
+                                        padx=6, pady=6,
+                                        cursor="hand2")
+        self.download_button.pack(side=tk.RIGHT, padx=5)
+        
         # Footer section with DHL/STELLANTIS branding
         footer_frame = tk.Frame(container, bg=stellantis_blue, height=34)
         footer_frame.pack(fill=tk.X, padx=0, pady=0, side=tk.BOTTOM)
@@ -256,18 +293,48 @@ class App:
         footer_label = tk.Label(right_footer, text="Desenvolvido por: Vincent Pernarh", font=("Segoe UI", 9), fg="white", bg=stellantis_blue)
         footer_label.pack(anchor="e")
 
+    def toggle_download(self):
+        """Toggle download mode on/off with visual feedback."""
+        stellantis_blue = "#003DA5"
+        stellantis_orange = "#FF6600"
+        gray_disabled = "#888888"
+        
+        current_state = self.download_var.get()
+        new_state = not current_state
+        self.download_var.set(new_state)
+        
+        if new_state:
+            # Download enabled
+            self.download_button.config(
+                text="✓ Baixar demandas",
+                bg=stellantis_blue,
+                relief=tk.FLAT
+            )
+        else:
+            # Download disabled
+            self.download_button.config(
+                text="✗ Baixar demandas",
+                bg=gray_disabled,
+                relief=tk.FLAT
+            )
+
+
+
     def start_processing_thread(self):
         self.process_button.config(state="disabled")
         self.progress_bar['value'] = 0
         self.log_text.delete('1.0', tk.END)
         self.status_label.config(text="Iniciando processo...")
         
-        self.thread = threading.Thread(target=main_process, args=(self.queue,))
+        # Get checkbox state
+        download_enabled = self.download_var.get()
+        
+        self.thread = threading.Thread(target=main_process, args=(self.queue, download_enabled))
         self.thread.daemon = True
         self.thread.start()
         
         # Start checking the queue for updates
-        update_gui(self.queue, self.status_label, self.progress_bar, self.log_text)
+        update_gui(self.queue, self.status_label, self.progress_bar, self.log_text, self.process_button)
 
 if __name__ == "__main__":
     root = tk.Tk()
