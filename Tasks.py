@@ -42,6 +42,7 @@ def load_config():
 CONFIG = load_config()
 
 caminho_pasta_matriz = os.path.join(caminho_base, CONFIG['paths']['folders']['base_matriz'])
+base_planilhas_recebidos = os.path.join(caminho_base, CONFIG['paths']['folders']['base_planilhas_recebidos'])
 # --- ADJUST HELPER ---
 def _check_name(filename, config_key):
     """
@@ -515,7 +516,8 @@ def Atualiza_PFEP(path_demandas,q):
             f'\'{demand_folder}\\[{demand_file}]Demandas_Total\'!$A:$A,'
             f'OFFSET($C$1,ROW()-1,0))))'
         )
-
+        
+        
         ws.range('P5').formula = formula
         
         q.put(("status", "Executando macro de recálculo do PFEP..."))
@@ -532,7 +534,9 @@ def Atualiza_PFEP(path_demandas,q):
         # if wb_demandas:
         #     wb_demandas.close()
 
-        Processar_programacao(wb_demandas,wb,q)
+        Processar_programacao(wb_demandas,wb,q)  # NEED TO FREE THIS FOR CODE TO CONTINUE
+        
+        
         q.put(("progress", 50))
 
     except Exception as e:
@@ -553,12 +557,17 @@ def Processar_programacao(wb_demandas,pfep, q):
     nome_prog_fiasa = None
     cargolift_sp_Supplier = None
     cargolift_sp_PFEP = None
+    
+    # --- Locate Programação FIASA file ---
+    for nome in os.listdir(base_planilhas_recebidos):
+        if _check_name(nome, 'fiasa_search_terms'):
+            nome_prog_fiasa = os.path.join(base_planilhas_recebidos, nome)
 
     
     # --- Locate Programação FIASA file ---
     for nome in os.listdir(caminho_pasta_matriz):
-        if _check_name(nome, 'fiasa_search_terms'):
-            nome_prog_fiasa = os.path.join(caminho_pasta_matriz, nome)
+        # if _check_name(nome, 'fiasa_search_terms'):
+        #     nome_prog_fiasa = os.path.join(caminho_pasta_matriz, nome)
 
         if _check_name(nome, 'cargolift_pfep_terms'):
             cargolift_sp_PFEP = os.path.join(caminho_pasta_matriz, nome)
@@ -594,7 +603,7 @@ def Processar_programacao(wb_demandas,pfep, q):
     
     try:
         # 1️⃣ Define the xlwings range (includes header)
-        filter_range = ws_pfep.range(f"A6:HA{last_row_pfep}")
+        filter_range = ws_pfep.range(f"A6:AZ{last_row_pfep}")
 
         # 2️⃣ Apply the filter
         filter_range.api.AutoFilter(Field:=16, Criteria1:="<>0,00")
@@ -620,7 +629,7 @@ def Processar_programacao(wb_demandas,pfep, q):
                     data_pfep.append(values)
 
         print(f"✅ Copied {len(data_pfep)} visible rows (header excluded) from PFEP.")
-
+        
             
     except Exception as e:
         print(f"⚠️ No visible data found in PFEP after filtering.")
@@ -672,7 +681,13 @@ def Processar_programacao(wb_demandas,pfep, q):
 
         else:
             print("⚠️ No PFEP data to paste.")
-
+        
+        
+        print("Removing the filters from Programação FIASA...")
+        if ws_cola_pfep.api.AutoFilterMode:
+            ws_cola_pfep.api.AutoFilterMode = False
+            
+       
         q.put(("status", "Colando dados do Supplier DB na Programação FIASA..."))
         if data_supplier:
             print("Pasting Supplier DB data...")
@@ -690,8 +705,7 @@ def Processar_programacao(wb_demandas,pfep, q):
             print("⚠️ No Supplier data to paste.")
         q.put(("status", "Executando recálculo da Programação FIASA..."))
         print("Recalculating, saving, and closing Programação FIASA...")
-        wb_fiasa.app.api.CalculateFullRebuild()
-        
+        wb_fiasa.app.api.CalculateFullRebuild()       
 
         q.put(("status", "Fechando PFEP de Arquivo de demandas..."))
 
@@ -706,7 +720,8 @@ def Processar_programacao(wb_demandas,pfep, q):
 
         # Find last used row in column C
         last_row = ws_Sup_db_corrier.range('C' + str(ws_Sup_db_corrier.cells.last_cell.row)).end('up').row
-
+        
+        
         q.put(("status", f"Processando {last_row - 1} linhas para atualização de Carrier..."))
         # Get data
         supplier_codes = ws_Sup_db_corrier.range(f'C2:C{last_row}').value
@@ -737,10 +752,10 @@ def Processar_programacao(wb_demandas,pfep, q):
                     ws_Sup_db_corrier.range(f'AB{i}').value = carrier_value
         q.put(("status", "Carrier atualizado na Programação FIASA."))
         
-
+        
         q.put(("status", "Salvando Programação FIASA..."))
         wb_fiasa.save()
-
+        
         progrma_cargolift (cargolift_sp_PFEP,cargolift_sp_Supplier,wb_fiasa,q,pfep,wb_demandas)
 
     finally:
@@ -751,9 +766,8 @@ def Processar_programacao(wb_demandas,pfep, q):
 
 
 def progrma_cargolift(arquivo_cargolift_sp_PFEP, arquivo_cargolift_sp_Supplier, wb_fiasa, q,pfep,wb_demandas):
-
-
-
+   
+    
     q.put(("status", "Iniciando atualização da Programação Cargolift SP..."))
     q.put(("progress", 70))
 
@@ -775,7 +789,15 @@ def progrma_cargolift(arquivo_cargolift_sp_PFEP, arquivo_cargolift_sp_Supplier, 
 
     # PFEP columns go to AQ (43)
     filter_range_pfep = ws_pfep.range(f"A1:AQ{last_row_pfep}")
-    filter_range_pfep.api.AutoFilter(Field:=43, Criteria1:=["CARGOLIFT", "CARGOLIFT SUL"], Operator:=xw.constants.AutoFilterOperator.xlFilterValues)
+   
+#    Need to verify one logic before anything more
+
+    filter_range_pfep.api.AutoFilter(Field:=43, Criteria1:=["CARGOLIFT", "CARGOLIFT SUL","LINE HAUL"], Operator:=xw.constants.AutoFilterOperator.xlFilterValues)
+    
+    # filter_range_pfep.api.AutoFilter(Field=43,Criteria1="<>OUT",Operator=xw.constants.AutoFilterOperator.xlAnd,
+    #             Criteria2="<>#N/A"
+    #         )
+
 
     # Collect visible data
     try:
